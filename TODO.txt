@@ -1,0 +1,7 @@
+TODO:
+
+(1) - Get naive RNN working, looks like we need to get a better idea of what is needed for the dimensions of our layers in the builder function.
+
+(2) - Get GRU RNN working/starting to be configured. Again, this will come when we understand what is necessary for the layers of a RNN for builder function.
+
+(3) - Need to start our report for turn in. Most of it can stay the same but we need to change the dataset we are using. We also need to add the methodology we are using and our progress in our project.
