@@ -5,14 +5,41 @@
        Natural Language Processing
 """
 
+
 import string
 import re
 import numpy as np
+from unicodedata import normalize
 from keras.optimizers import Adam
 from keras.models import Sequential
-from keras.layers import Dense, LSTM, Embedding, RepeatVector, Dropout
+from keras.layers import Dense, LSTM, Embedding, RepeatVector
 from keras.preprocessing.text import Tokenizer
 from sklearn.model_selection import train_test_split
+
+
+def max_line_length(lines):
+    return max(len(line.split()) for line in lines)
+
+
+def clean_text(lines):
+    clean_lines = []
+    printable = re.compile('[^{}]'.format(re.escape(string.printable)))
+    
+    translation_table = str.maketrans('', '', string.punctuation)
+    
+    for line in lines:
+        cleaned = []
+        for lang in line:
+            lang = normalize('NFD', lang).encode('ascii', 'ignore')
+            lang = lang.decode('UTF-8')
+            lang = lang.split()
+            lang = [word.lower() for word in lang]
+            lang = [word.translate(translation_table) for word in lang]
+            lang = [printable.sub('', word) for word in lang]
+            lang = [word for word in lang if word.isalpha()]
+            cleaned.append(' '.join(lang))
+        clean_lines.append(cleaned)
+    return np.array(clean_lines)
 
 # =============================================================================
 # @author Noah Rozelle - 801028077
@@ -35,17 +62,6 @@ def text_to_lines_array(txt):
     sentences = txt.strip().split('\n')
     sentences = [i.split('\t') for i in sentences]
     return np.array(sentences)
-
-# =============================================================================
-# @author Noah Rozelle - 801028077
-# @desc   Tokenizer an array of strings
-# @params
-    #arr = array of strings
-# =============================================================================
-def tokenize_strings(tkn, arr):
-    tkn.fit_on_texts(arr)
-    new_arr = tkn.texts_to_sequences(arr)
-    return np.array(new_arr)
 
 # =============================================================================
 # @author Noah Rozelle - 801028077
@@ -78,10 +94,10 @@ def create_RNN_model(n, en_len, de_len):
 def create_RNN_LSTM_model(n, train_shape, test_shape):
     lstm_model = Sequential()
     
-    lstm_model.add(LSTM(128, input_shape=train_shape, activation='relu', return_sequences=True))
+    lstm_model.add(LSTM(128, input_shape=(1,1), activation='relu', return_sequences=True))
     lstm_model.add(Dropout(0.2))
     
-    lstm_model.add(LSTM(128, activation='relu'))
+    lstm_model.add(LSTM(128,activation='relu', return_sequences=True))
     lstm_model.add(Dropout(0.2))
     
     lstm_model.add(Dense(32, activation='relu'))
@@ -95,48 +111,50 @@ def create_RNN_LSTM_model(n, train_shape, test_shape):
                        metrics=['accuracy'])
     return lstm_model
 
-# NOTE: Will need to reduce the number of lines in the document
+
 if __name__ == '__main__':
     # Grab our doc from file, need to post where we got data from
     doc = read_document('deu.txt')
     en_de_lines = text_to_lines_array(doc)
     
-    # Split our en_de_lines into english and german arrays
-    en_lines = en_de_lines[:10000,0]
-    de_lines = en_de_lines[:10000,1]
+    cleaned_lines = clean_text(en_de_lines)
+    print(cleaned_lines[:100])
+    
+    # Split our cleaned_lines into english and german arrays
+    en_lines = cleaned_lines[:10000,0]
+    de_lines = cleaned_lines[:10000,1]
+    
+    # Using Keras tokenizer method to create dictionary for our languages
+    eng_tokenizer = Tokenizer()
+    eng_tokenizer.fit_on_texts(en_lines)
+    print('English vocab size: {}'.format(len(eng_tokenizer.index_word)))
+    print('English max line size: {}'.format(max_line_length(en_lines)))
+    
+    de_tokenizer = Tokenizer()
+    de_tokenizer.fit_on_texts(de_lines)
+    print('German vocab size: {}'.format(len(de_tokenizer.index_word)))
+    print('German max line size: {}'.format(max_line_length(de_lines)))
     
     
-    print(en_lines.shape)
-    print(de_lines.shape)
-    # Credit: "Recurrent Neural Networds by Example in Python" by Will Koehrsen
-    # URL: https://towardsdatascience.com/recurrent-neural-networks-by-example-in-python-ffd204f99470
-    tkn = Tokenizer(num_words=None,
-                    filters='#$%&()*+-<=>@[\\]^_`{|}~\t\n',
-                    lower=False, split=' ')
+    # Encode our lines into numerical values to train on
     
-    # Convert the lines of text into integer sequences
-    en_tokenized = tokenize_strings(tkn, en_lines)
-    de_tokenized = tokenize_strings(tkn, de_lines)
     
-    print(en_tokenized.shape)
-    print(de_tokenized.shape)
-    # Grab our token.index_word
-    token_to_word = tkn.index_word
-    
-    # Create one hot embedded arrays for lines
-    for i,(en_line, de_line) in enumerate(zip(en_tokenized, de_tokenized)):
-        en_tokenized[i] = create_one_hot_array(en_line, max([i for i in token_to_word]))
-        de_tokenized[i] = create_one_hot_array(de_line, max([i for i in token_to_word]))
-    
-    # Split our training set into training set and testing set, random_state 42 because that is the answer to life
-    # x_train/x_test are english while y_train/y_test are german
-    x_train, y_train, x_test, y_test = train_test_split(en_tokenized, de_tokenized, test_size=0.25, random_state=42, shuffle=False)
-    
-    print(type(x_train))
-    
-    rnn_lstm = create_RNN_LSTM_model(max([i for i in token_to_word]),
-                                     train_shape=x_train.shape,
-                                     test_shape=y_train.shape)
-    
-    rnn_lstm.fit(x_train, y_train, epochs=3, validation_data=(x_test, y_test))
+#    # Create one hot embedded arrays for lines
+#    for i,(en_line, de_line) in enumerate(zip(en_tokenized, de_tokenized)):
+#        en_tokenized[i] = create_one_hot_array(en_line, max([i for i in token_to_word]))
+#        de_tokenized[i] = create_one_hot_array(de_line, max([i for i in token_to_word]))
+#    
+#    # Split our training set into training set and testing set, random_state 42 because that is the answer to life
+#    # x_train/x_test are english while y_train/y_test are german
+#    x_train, y_train, x_test, y_test = train_test_split(en_tokenized, de_tokenized, test_size=0.25, random_state=42, shuffle=False)
+#    
+#    x_train.reshape((x_train.shape[0], 1, 1))
+#    print(x_train.shape)
+#    y_train.reshape((y_train.shape[0], 1, 1))
+#    print(y_train.shape)
+#    rnn_lstm = create_RNN_LSTM_model(max([i for i in token_to_word]),
+#                                     train_shape=x_train.shape,
+#                                     test_shape=y_train.shape)
+#    
+#    rnn_lstm.fit(x_train, y_train, epochs=3, validation_data=(x_test, y_test))
     
