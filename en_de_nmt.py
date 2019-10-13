@@ -9,21 +9,24 @@
 import string
 import re
 import numpy as np
+# Part of python standard library, provides a way to convert accented characters
+# with their corresponding unicode interpretation, this is to make sure our
+# model scales well
 from unicodedata import normalize
 from keras.models import Sequential
 from keras.layers import Dense, LSTM, Embedding, RepeatVector, TimeDistributed
 from keras.preprocessing.text import Tokenizer
+from keras.utils import to_categorical
 from sklearn.model_selection import train_test_split
-
-
-def max_line_length(lines):
-    return max(len(line.split()) for line in lines)
 
 
 def clean_text(lines):
     clean_lines = []
+    
+    # Regular expression for printable characters
     printable = re.compile('[^{}]'.format(re.escape(string.printable)))
     
+    # remove punctuation from our texts so we can focus on translating words
     translation_table = str.maketrans('', '', string.punctuation)
     
     for line in lines:
@@ -62,6 +65,11 @@ def text_to_lines_array(txt):
     sentences = [i.split('\t') for i in sentences]
     return np.array(sentences)
 
+
+# =============================================================================
+# @author Noah Rozelle - 801028077
+# @desc Encode our lines with the tokenizers corresponding value, then we pad w/ zeros
+# =============================================================================
 def encode_lines(txt, size, tkn):
     print(size)
     sequences = tkn.texts_to_sequences(txt)
@@ -70,6 +78,25 @@ def encode_lines(txt, size, tkn):
         while len(seq) < size:
             seq.append(0)
     return sequences
+
+
+# =============================================================================
+# @author Noah Rozelle - 801028077
+# @desc one hot encoding for our train_y and test_y as it is required for keras RNN models
+# =============================================================================
+def one_hot_encoding(seqs, vocab):
+    ys = []
+
+    if type(seqs) != 'numpy.ndarray':
+        seqs = np.array(seqs)
+    
+    for seq in seqs:
+        one_hot_encode = to_categorical(seq, num_classes=vocab)
+        ys.append(one_hot_encode)
+    ys = np.array(ys)
+    ys = ys.reshape(seqs.shape[0], seqs.shape[1], vocab)
+    return ys
+        
 
 # =============================================================================
 # @author Noah Rozelle - 801028077
@@ -88,9 +115,11 @@ def create_RNN_model(n, en_len, de_len):
 # @desc Creation of model number 2, RNN w/ LSTM for purpose of translation
 # =============================================================================
 def create_RNN_LSTM_model(de_vocab, en_vocab, de_timesteps, en_timesteps, num_of_seqs):
+    # Core layer from Keras for RNN implementations
     lstm_model = Sequential()
     
-    lstm_model.add(Embedding(de_vocab, num_of_seqs, input_length=en_timesteps,mask_zero=True))
+    # the layers making up our RNN LSTM model
+    lstm_model.add(Embedding(de_vocab, num_of_seqs, input_length=de_timesteps,mask_zero=True))
     lstm_model.add(LSTM(num_of_seqs))
     lstm_model.add(RepeatVector(en_timesteps))
     lstm_model.add(LSTM(num_of_seqs, return_sequences=True))
@@ -107,8 +136,8 @@ if __name__ == '__main__':
     cleaned_lines = clean_text(en_de_lines)
     
     # Split our cleaned_lines into english and german arrays
-    en_lines = cleaned_lines[:10000,0]
-    de_lines = cleaned_lines[:10000,1]
+    en_lines = cleaned_lines[:25000,0]
+    de_lines = cleaned_lines[:25000,1]
     
     # Using Keras tokenizer method to create dictionary for our languages
     en_tokenizer = Tokenizer()
@@ -117,28 +146,32 @@ if __name__ == '__main__':
     de_tokenizer = Tokenizer()
     de_tokenizer.fit_on_texts(de_lines)
     
+    # Define our vocab size
+    en_size = len(en_tokenizer.word_index) + 1
+    de_size = len(de_tokenizer.word_index) + 1
+    
     # Encode our lines into numerical values to train on
-    # Our 'X'
+    # Our 'X', we pass in the cleaned lines for english samples, the max length of english sentences, as well as our tokenizer 
     en_seq = encode_lines(en_lines, max([len(w.split()) for w in en_lines]), en_tokenizer)
-    # Our 'Y'
+    # Our 'Y', same as above, but for our german phrases
     de_seq = encode_lines(de_lines, max([len(w.split()) for w in de_lines]), de_tokenizer)
     
     # now we must split our set into training and testing
-    train_x, test_x, train_y, test_y = train_test_split(en_seq, de_seq, test_size=0.25, random_state=42, shuffle=False)
+    train_x, test_x, train_y, test_y = train_test_split(de_seq, en_seq, test_size=0.25, random_state=42, shuffle=False)
     
-    # change each into numpy arrays and reshape
-    train_x = np.array(train_x)#.reshape((1, 7500, 5))
-    train_y = np.array(train_y)#.reshape((1, 7500, 10))
+    # encode our ys
+    train_y = one_hot_encoding(train_y, en_size)
+    test_y = one_hot_encoding(test_y, en_size)
     
-    test_x = np.array(test_x)#.reshape((1, 2500, 5))
-    test_y = np.array(test_y)#.reshape((1, 2500, 10))
+    # change each into numpy arrays
+    train_x = np.array(train_x)
+    train_y = np.array(train_y)
     
-    # Define our vocabulary size
-    en_size = len(en_tokenizer.word_index)
-    de_size = len(de_tokenizer.word_index)
+    test_x = np.array(test_x)
+    test_y = np.array(test_y)
     
     # Now we can create our LSTM Model
     lstm = create_RNN_LSTM_model(de_size, en_size, max([len(w.split()) for w in de_lines]), max([len(w.split()) for w in en_lines]), 256)
     lstm.compile(loss='mean_squared_error', optimizer='sgd')
-    
+    print(lstm.summary())
     lstm.fit(train_x, train_y, epochs=30, batch_size=64, validation_data=(test_x, test_y))
