@@ -10,7 +10,6 @@ import string
 import re
 import numpy as np
 from unicodedata import normalize
-from keras.optimizers import Adam
 from keras.models import Sequential
 from keras.layers import Dense, LSTM, Embedding, RepeatVector, TimeDistributed
 from keras.preprocessing.text import Tokenizer
@@ -63,18 +62,15 @@ def text_to_lines_array(txt):
     sentences = [i.split('\t') for i in sentences]
     return np.array(sentences)
 
-# =============================================================================
-# @author Noah Rozelle - 801028077
-# @desc   Create one-hot-array reps of sentences
-# @params
-    #arr = language array
-    #  n = max size of embedding
-# =============================================================================
-def create_one_hot_array(arr, n):
-    one_hot_embed_line = np.zeros(shape=(1,n))
-    for i in arr:
-        one_hot_embed_line[0,i-1] = 1
-    return one_hot_embed_line
+def encode_lines(txt, size, tkn):
+    print(size)
+    sequences = tkn.texts_to_sequences(txt)
+    # add zero to sequences so that they become the same size, necessary for training
+    for seq in sequences:
+        while len(seq) < size:
+            seq.append(0)
+    return sequences
+
 # =============================================================================
 # @author Noah Rozelle - 801028077
 # @desc   Creation of model number 1, simple RNN for purpose of translation (GRU)
@@ -94,11 +90,11 @@ def create_RNN_model(n, en_len, de_len):
 def create_RNN_LSTM_model(de_vocab, en_vocab, de_timesteps, en_timesteps, num_of_seqs):
     lstm_model = Sequential()
     
-    lstm_model.add(Embedding(de_vocab, num_of_seqs, input_length=de_timesteps, mask_zero=True))
+    lstm_model.add(Embedding(de_vocab, num_of_seqs, input_length=en_timesteps,mask_zero=True))
     lstm_model.add(LSTM(num_of_seqs))
     lstm_model.add(RepeatVector(en_timesteps))
     lstm_model.add(LSTM(num_of_seqs, return_sequences=True))
-    lstm_model.add(TimeDistributed(en_vocab, activation='relu'))
+    lstm_model.add(TimeDistributed(Dense(en_vocab, activation='relu')))
     
     return lstm_model
 
@@ -109,11 +105,10 @@ if __name__ == '__main__':
     en_de_lines = text_to_lines_array(doc)
     
     cleaned_lines = clean_text(en_de_lines)
-    print(cleaned_lines[:-100])
     
     # Split our cleaned_lines into english and german arrays
-    en_lines = cleaned_lines[:25000,0]
-    de_lines = cleaned_lines[:25000,1]
+    en_lines = cleaned_lines[:10000,0]
+    de_lines = cleaned_lines[:10000,1]
     
     # Using Keras tokenizer method to create dictionary for our languages
     en_tokenizer = Tokenizer()
@@ -122,8 +117,28 @@ if __name__ == '__main__':
     de_tokenizer = Tokenizer()
     de_tokenizer.fit_on_texts(de_lines)
     
-    
     # Encode our lines into numerical values to train on
+    # Our 'X'
+    en_seq = encode_lines(en_lines, max([len(w.split()) for w in en_lines]), en_tokenizer)
+    # Our 'Y'
+    de_seq = encode_lines(de_lines, max([len(w.split()) for w in de_lines]), de_tokenizer)
     
+    # now we must split our set into training and testing
+    train_x, test_x, train_y, test_y = train_test_split(en_seq, de_seq, test_size=0.25, random_state=42, shuffle=False)
     
+    # change each into numpy arrays and reshape
+    train_x = np.array(train_x)#.reshape((1, 7500, 5))
+    train_y = np.array(train_y)#.reshape((1, 7500, 10))
     
+    test_x = np.array(test_x)#.reshape((1, 2500, 5))
+    test_y = np.array(test_y)#.reshape((1, 2500, 10))
+    
+    # Define our vocabulary size
+    en_size = len(en_tokenizer.word_index)
+    de_size = len(de_tokenizer.word_index)
+    
+    # Now we can create our LSTM Model
+    lstm = create_RNN_LSTM_model(de_size, en_size, max([len(w.split()) for w in de_lines]), max([len(w.split()) for w in en_lines]), 256)
+    lstm.compile(loss='mean_squared_error', optimizer='sgd')
+    
+    lstm.fit(train_x, train_y, epochs=30, batch_size=64, validation_data=(test_x, test_y))
