@@ -118,11 +118,11 @@ if __name__ == '__main__':
     en_de_lines = text_to_lines_array(doc)
     
     cleaned_lines = clean_text(en_de_lines)
-    print(cleaned_lines[:100])
+    print(cleaned_lines[:-100])
     
     # Split our cleaned_lines into english and german arrays
-    en_lines = cleaned_lines[:10000,0]
-    de_lines = cleaned_lines[:10000,1]
+    en_lines = cleaned_lines[:25000,0]
+    de_lines = cleaned_lines[:25000,1]
     
     # Using Keras tokenizer method to create dictionary for our languages
     eng_tokenizer = Tokenizer()
