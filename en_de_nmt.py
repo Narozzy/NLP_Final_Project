@@ -12,7 +12,7 @@ import numpy as np
 from unicodedata import normalize
 from keras.optimizers import Adam
 from keras.models import Sequential
-from keras.layers import Dense, LSTM, Embedding, RepeatVector
+from keras.layers import Dense, LSTM, Embedding, RepeatVector, TimeDistributed
 from keras.preprocessing.text import Tokenizer
 from sklearn.model_selection import train_test_split
 
@@ -91,24 +91,15 @@ def create_RNN_model(n, en_len, de_len):
 # @author Noah Rozelle - 801028077
 # @desc Creation of model number 2, RNN w/ LSTM for purpose of translation
 # =============================================================================
-def create_RNN_LSTM_model(n, train_shape, test_shape):
+def create_RNN_LSTM_model(de_vocab, en_vocab, de_timesteps, en_timesteps, num_of_seqs):
     lstm_model = Sequential()
     
-    lstm_model.add(LSTM(128, input_shape=(1,1), activation='relu', return_sequences=True))
-    lstm_model.add(Dropout(0.2))
+    lstm_model.add(Embedding(de_vocab, num_of_seqs, input_length=de_timesteps, mask_zero=True))
+    lstm_model.add(LSTM(num_of_seqs))
+    lstm_model.add(RepeatVector(en_timesteps))
+    lstm_model.add(LSTM(num_of_seqs, return_sequences=True))
+    lstm_model.add(TimeDistributed(en_vocab, activation='relu'))
     
-    lstm_model.add(LSTM(128,activation='relu', return_sequences=True))
-    lstm_model.add(Dropout(0.2))
-    
-    lstm_model.add(Dense(32, activation='relu'))
-    lstm_model.add(Dropout(0.2))
-    
-    lstm_model.add(Dense(10, activation='relu'))
-    
-    optimizer = Adam(decay=1e-5)
-    lstm_model.compile(loss='sparse_categorical_crossentropy',
-                       optimizer=optimizer,
-                       metrics=['accuracy'])
     return lstm_model
 
 
@@ -125,36 +116,14 @@ if __name__ == '__main__':
     de_lines = cleaned_lines[:25000,1]
     
     # Using Keras tokenizer method to create dictionary for our languages
-    eng_tokenizer = Tokenizer()
-    eng_tokenizer.fit_on_texts(en_lines)
-    print('English vocab size: {}'.format(len(eng_tokenizer.index_word)))
-    print('English max line size: {}'.format(max_line_length(en_lines)))
+    en_tokenizer = Tokenizer()
+    en_tokenizer.fit_on_texts(en_lines)
     
     de_tokenizer = Tokenizer()
     de_tokenizer.fit_on_texts(de_lines)
-    print('German vocab size: {}'.format(len(de_tokenizer.index_word)))
-    print('German max line size: {}'.format(max_line_length(de_lines)))
     
     
     # Encode our lines into numerical values to train on
     
     
-#    # Create one hot embedded arrays for lines
-#    for i,(en_line, de_line) in enumerate(zip(en_tokenized, de_tokenized)):
-#        en_tokenized[i] = create_one_hot_array(en_line, max([i for i in token_to_word]))
-#        de_tokenized[i] = create_one_hot_array(de_line, max([i for i in token_to_word]))
-#    
-#    # Split our training set into training set and testing set, random_state 42 because that is the answer to life
-#    # x_train/x_test are english while y_train/y_test are german
-#    x_train, y_train, x_test, y_test = train_test_split(en_tokenized, de_tokenized, test_size=0.25, random_state=42, shuffle=False)
-#    
-#    x_train.reshape((x_train.shape[0], 1, 1))
-#    print(x_train.shape)
-#    y_train.reshape((y_train.shape[0], 1, 1))
-#    print(y_train.shape)
-#    rnn_lstm = create_RNN_LSTM_model(max([i for i in token_to_word]),
-#                                     train_shape=x_train.shape,
-#                                     test_shape=y_train.shape)
-#    
-#    rnn_lstm.fit(x_train, y_train, epochs=3, validation_data=(x_test, y_test))
     
