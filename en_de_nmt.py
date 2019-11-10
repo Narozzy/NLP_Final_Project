@@ -14,7 +14,7 @@ import numpy as np
 # model scales well
 from unicodedata import normalize
 from keras.models import Sequential
-from keras.layers import Dense, LSTM, Embedding, RepeatVector, TimeDistributed
+from keras.layers import Dense, LSTM, Embedding, RepeatVector, TimeDistributed, GRU
 from keras.preprocessing.text import Tokenizer
 from keras.utils import to_categorical
 from sklearn.model_selection import train_test_split
@@ -106,9 +106,14 @@ def one_hot_encoding(seqs, vocab):
     #en_len = Length of english sentence
     #de_len = Length of german sentence
 # =============================================================================
-def create_RNN_model(n, en_len, de_len):
-    rnn_model = Sequential()
-    pass
+def create_GRU_RNN_model(de_vocab, en_vocab, de_timesteps, en_timesteps, num_of_seqs):
+    gru_model = Sequential()
+    gru_model.add(Embedding(de_vocab, num_of_seqs, input_length=de_timesteps,mask_zero=True))
+    gru_model.add(GRU(num_of_seqs))
+    gru_model.add(RepeatVector(en_timesteps))
+    gru_model.add(GRU(num_of_seqs, return_sequences=True))
+    gru_model.add(TimeDistributed(Dense(en_vocab, activation='sigmoid')))
+    return gru_model
 
 # =============================================================================
 # @author Noah Rozelle - 801028077
@@ -151,9 +156,9 @@ if __name__ == '__main__':
     de_size = len(de_tokenizer.word_index) + 1
     
     # Encode our lines into numerical values to train on
-    # Our 'X', we pass in the cleaned lines for english samples, the max length of english sentences, as well as our tokenizer 
+    # Our 'Y', we pass in the cleaned lines for english samples, the max length of english sentences, as well as our tokenizer 
     en_seq = encode_lines(en_lines, max([len(w.split()) for w in en_lines]), en_tokenizer)
-    # Our 'Y', same as above, but for our german phrases
+    # Our 'X', same as above, but for our german phrases
     de_seq = encode_lines(de_lines, max([len(w.split()) for w in de_lines]), de_tokenizer)
     
     # now we must split our set into training and testing
@@ -171,7 +176,13 @@ if __name__ == '__main__':
     test_y = np.array(test_y)
     
     # Now we can create our LSTM Model
-    lstm = create_RNN_LSTM_model(de_size, en_size, max([len(w.split()) for w in de_lines]), max([len(w.split()) for w in en_lines]), 256)
-    lstm.compile(loss='mean_squared_error', optimizer='sgd')
-    print(lstm.summary())
-    lstm.fit(train_x, train_y, epochs=30, batch_size=64, validation_data=(test_x, test_y))
+#    lstm = create_RNN_LSTM_model(de_size, en_size, max([len(w.split()) for w in de_lines]), max([len(w.split()) for w in en_lines]), 256)
+#    lstm.compile(loss='mean_squared_error', optimizer='sgd')
+#    print(lstm.summary())
+#    lstm.fit(train_x, train_y, epochs=30, batch_size=64, validation_data=(test_x, test_y))
+    
+    # Now we can create our GRU model
+    gru = create_GRU_RNN_model(de_size, en_size, max([len(w.split()) for w in de_lines]), max([len(w.split()) for w in en_lines]), 256)
+    gru.compile(loss='mean_squared_error', optimizer='sgd')
+    print(gru.summary())
+    gru.fit(train_x, train_y, epochs=30, batch_size=64, validation_data=(test_x, test_y))
