@@ -45,6 +45,7 @@ def clean_text(lines):
 
 # =============================================================================
 # @author Noah Rozelle - 801028077
+# @author Ovidiu Mocanu - 800961822
 # @desc   read document given filename
 # @params
     #filename = Name of our dataset file
@@ -68,6 +69,7 @@ def text_to_lines_array(txt):
 
 # =============================================================================
 # @author Noah Rozelle - 801028077
+# @author Ovidiu Mocanu - 800961822
 # @desc Encode our lines with the tokenizers corresponding value, then we pad w/ zeros
 # =============================================================================
 def encode_lines(txt, size, tkn):
