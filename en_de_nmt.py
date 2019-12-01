@@ -175,14 +175,29 @@ if __name__ == '__main__':
     test_x = np.array(test_x)
     test_y = np.array(test_y)
     
-    # Now we can create our LSTM Model
-#    lstm = create_RNN_LSTM_model(de_size, en_size, max([len(w.split()) for w in de_lines]), max([len(w.split()) for w in en_lines]), 256)
-#    lstm.compile(loss='mean_squared_error', optimizer='sgd')
-#    print(lstm.summary())
-#    lstm.fit(train_x, train_y, epochs=30, batch_size=64, validation_data=(test_x, test_y))
+#     Now we can create our LSTM Model
+    lstm = create_RNN_LSTM_model(de_size, en_size, max([len(w.split()) for w in de_lines]), max([len(w.split()) for w in en_lines]), 256)
+    lstm.compile(loss='mean_squared_error', optimizer='sgd')
+    print(lstm.summary())
+    lstm.fit(train_x, train_y, epochs=30, batch_size=64, validation_data=(test_x, test_y))
+    
+    for x in test_x:
+        print(lstm.predict(x))
+    
+    # Load json and then save file
+    lstm_json = lstm.to_json()
+    with open('lstm_model.json', 'w+') as f:
+        f.write(lstm_json)
+    lstm.save_weights('lstm_model_embeddings.h5')
     
     # Now we can create our GRU model
     gru = create_GRU_RNN_model(de_size, en_size, max([len(w.split()) for w in de_lines]), max([len(w.split()) for w in en_lines]), 256)
     gru.compile(loss='mean_squared_error', optimizer='sgd')
     print(gru.summary())
     gru.fit(train_x, train_y, epochs=30, batch_size=64, validation_data=(test_x, test_y))
+    
+    # load json and then save to file
+    gru_json = gru.to_json()
+    with open('gru_model.json', 'w+') as f:
+        f.write(gru_json)
+    gru.save_weights('gru_model_embeddings.h5')
