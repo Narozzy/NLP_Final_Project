@@ -19,7 +19,13 @@ from keras.preprocessing.text import Tokenizer
 from keras.utils import to_categorical
 from sklearn.model_selection import train_test_split
 
-
+# =============================================================================
+# @author Noah Rozelle - 801028077
+# @author Ovidiu Mocanu - 800961822
+# @desc   Cleans input text of punctuation and special chars
+# @params
+    #lines = string to be cleaned
+# =============================================================================
 def clean_text(lines):
     clean_lines = []
     
@@ -45,6 +51,7 @@ def clean_text(lines):
 
 # =============================================================================
 # @author Noah Rozelle - 801028077
+# @author Ovidiu Mocanu - 800961822
 # @desc   read document given filename
 # @params
     #filename = Name of our dataset file
@@ -68,6 +75,7 @@ def text_to_lines_array(txt):
 
 # =============================================================================
 # @author Noah Rozelle - 801028077
+# @author Ovidiu Mocanu - 800961822
 # @desc Encode our lines with the tokenizers corresponding value, then we pad w/ zeros
 # =============================================================================
 def encode_lines(txt, size, tkn):
@@ -100,6 +108,7 @@ def one_hot_encoding(seqs, vocab):
 
 # =============================================================================
 # @author Noah Rozelle - 801028077
+# @author Ovidiu Mocanu - 800961822
 # @desc   Creation of model number 1, simple RNN for purpose of translation (GRU)
 # @params:
     #n = Number of Hidden Nodes
